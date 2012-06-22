@@ -180,6 +180,8 @@ def main():
     r_library = api.get_all_songs()
 
     # Check if each track in the local playlist is on the Google Music playlist
+    tracks_to_add_names = []
+    tracks_to_add_ids = []
     for l_track in l_tracks:
         added = False
         # Check if the track is already present in the playlist
@@ -196,6 +198,8 @@ def main():
             for r_track in r_library:
                 if l_track['title'] == r_track['title'] and l_track['artist'] == r_track['artist'] and l_track['album'] == r_track['album']:
                     l_track_id = r_track['id']
+                    tracks_to_add_names.append(l_track['title'])
+                    tracks_to_add_ids.append(r_track['id'])
                     break
 
             # Check if the song wasn't found in the library
@@ -203,13 +207,26 @@ def main():
                 print "Error: Track \"" + l_track['title'] + "\" not found in library."
                 continue
 
-            # Finally, add the new track to the playlist
-            print "Adding track \"" + l_track['title'] + "\" to playlist."
+    # Check that there are tracks to add
+    if len(tracks_to_add_ids) == 0:
+        print "\nPlaylist is already up-to-date."
+        api.logout
+        exit(0)
+
+    # Print the songs about to be added
+    print "Tracks to be add:"
+    for track in tracks_to_add_names:
+        print "\t" + track
+    print  "\nThe above tracks will be added to the playlist \"" + l_pl_name + "\""
+    if raw_input("Is this okay? (y,n) ") == "y":
+        # Finally, add the new track to the playlist
+        for id in tracks_to_add_ids:
             api.add_songs_to_playlist(r_pl_id, l_track_id)
+        print "\nTracks added to playlist!"
 
     # Be a good citizen and log out
     api.logout()
-    print "=-=-=-=-=-=-=-=\nAll done! Bye!"
+    print "\nBye!"
     exit(0)
 
 
