@@ -25,7 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+import sys
 from os import path
 from getpass import getpass
 from xml.etree.ElementTree import parse
@@ -39,10 +39,20 @@ def init():
     attempts = 0
 
     while not logged_in and attempts < 3:
-        email = raw_input("Email: ")
-        password = getpass()
+        email = raw_input("Google username or email: ")
 
-        print "Logging in..."
+        # Try to read the password from a file
+        # If file doesn't exist, ask for password
+        # This is useful for 2-step authentication only
+        # Don't store your regular password in plain text
+        try:
+            pw_file = open("pass.txt")
+            password = pw_file.readline()
+            print "Reading password from pass.txt."
+        except IOError:
+            password = getpass()
+
+        print "\nLogging in..."
         logged_in = api.login(email, password)
         if not logged_in:
             print "Log in failed."
@@ -79,21 +89,51 @@ def parse_xml(l_pl_path):
     return l_tracks
 
 
+def printUsage(prog):
+    print "Usage: " + prog + " [options] [path to playlist]\n"
+    print "\tThe only valid options at this time are \"-h\" or \"--help\" to display this message."
+    print "\tIf a playlist is not specified, a path to one will be asked for."
+
+
 def main():
+    # Show help if requested
+    if len(sys.argv) == 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
+            printUsage(sys.argv[0])
+            exit(0)
+
+    # Show some pretty ASCII art
+    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
+    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
+    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
+    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
+    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
+    print "                   |___/                                                  |___/                     |___/            "
+
+    print "\nThis script will sync a local XSPF format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n"
+
     # Log in to Google Music
     api = init()
 
     if not api.is_authenticated():
         print "Sorry, those credentials weren't accepted."
-        return
+        exit(1)
 
-    print "Successfully logged in."
+    print "Successfully logged in.\n"
 
-    # Get the playlist file to use
-    l_pl_path = raw_input("Path to playlist file: ")
+    # Check if the playlist file was given as a command line arg
+    if len(sys.argv) == 2:
+        print "Using \"" + sys.argv[1] + "\" as playlist to sync."
+        l_pl_path = sys.argv[1]
+    elif len(sys.argv) > 2:
+        print "Too many command line arguments given."
+        api.logout
+        exit(1)
+    else:
+        # Prompt for the playlist file to use
+        l_pl_path = raw_input("Path to playlist file: ")
 
     # Get the filename. This will be used as the playlist name.
-    l_pl_name, l_pl_type = path.splitext(l_pl_path)
+    l_pl_name, l_pl_type = path.splitext(path.basename(l_pl_path))
 
     # Check that the file extension is xspf
     if l_pl_type != ".xspf":
@@ -144,8 +184,8 @@ def main():
         added = False
         # Check if the track is already present in the playlist
         for r_track in r_tracks:
-            if l_track['title'] == r_track['title'] and l_track['artist'] == r_track['artist'] and l_track['album'] == r_track['artist']:
-                print "Track: \"" + l_track['title'] + "\" already added to playlist."
+            if l_track['title'] == r_track['title'] and l_track['artist'] == r_track['artist'] and l_track['album'] == r_track['album']:
+                #print "Track: \"" + l_track['title'] + "\" already added to playlist."
                 added = True
                 break
 
@@ -164,12 +204,12 @@ def main():
                 continue
 
             # Finally, add the new track to the playlist
+            print "Adding track \"" + l_track['title'] + "\" to playlist."
             api.add_songs_to_playlist(r_pl_id, l_track_id)
-            print "Added track \"" + l_track['title'] + "\" to playlist."
 
     # Be a good citizen and log out
     api.logout()
-    print "All done!"
+    print "=-=-=-=-=-=-=-=\nAll done! Bye!"
     exit(0)
 
 
