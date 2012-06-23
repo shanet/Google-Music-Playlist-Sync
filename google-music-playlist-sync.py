@@ -4,7 +4,11 @@
 # 
 # GitHub repo: https://github.com/shanet/Google-Music-Playlist-Sync
 #
-# This program is open source software. Do whatever you want with it.
+# This program is open source software. It is free to distribute, modify, and use
+# with the exception of it being made closed source and sold for commercial purposes
+# without the consent of the author. However, the author simply requests that if you 
+# do something cool with it, you let him check it out by emailing shane@shanetully.com 
+# or just let him know you find it useful.
 #
 # Makes use of the Unofficial Google Music API by Simon Weber
 # https://github.com/simon-weber/Unofficial-Google-Music-API
