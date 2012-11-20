@@ -10,7 +10,9 @@ This scripts makes use of the Unofficial-Google-Music-API to interface with Goog
 
 ## Usage
 
-First and foremost, the GoogleMusicAPI needs to be installed. Running `sudo pip install gmusicapi` will install it and all dependencies. After that, just run it like any other Python script. It will guide you through logging in and syncing songs.
+First and foremost, the GoogleMusicAPI needs to be installed. The version that `pip` installs seems to be outdated. It's best to grab the most recent source from: https://github.com/simon-weber/Unofficial-Google-Music-API
+After cloning, run `python setup.py build` and then `sudo python setup.py install`.
+Once the GoogleMusicAPI is installed, just run the playlist sync script like any other Python script. It will guide you through logging in and syncing songs.
 
 If you use two-step authentication with your Google account, you can store your application specific key in a file called "pass.txt" in the same directory as the script. You should ONLY store an application specific key here. Storing your real password in plain text is a horrible idea. Granted, so is storing an app-specific key, so type it in each time if you want.
 
