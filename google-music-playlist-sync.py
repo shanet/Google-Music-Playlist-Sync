@@ -139,7 +139,7 @@ def main():
         exit(1)
 
     # Get all available playlists from Google Music
-    r_pls = api.get_all_playlist_ids(False, False)
+    r_pls = api.get_all_playlist_ids(False, True)
 
     # Try to find the playlist if it already exists
     r_pl_id = None
@@ -192,7 +192,7 @@ def main():
 
             # Check if the song wasn't found in the library
             if l_track_id == None:
-                print "Error: Track \"" + l_track['title'] + "\" not found in library."
+                print "Error: Track \"" + l_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
                 continue
 
     # Check that there are tracks to add
@@ -208,9 +208,11 @@ def main():
     print  "\nThe above tracks will be added to the playlist \"" + l_pl_name + "\""
     if raw_input("Is this okay? (y,n) ") == "y":
         # Finally, add the new track to the playlist
-        for id in tracks_to_add_ids:
-            api.add_songs_to_playlist(r_pl_id, l_track_id)
+        for track_id in tracks_to_add_ids:
+            api.add_songs_to_playlist(r_pl_id, track_id)
         print "\nTracks added to playlist!"
+    else:
+        print "Sorry!\n"
 
     # Be a good citizen and log out
     api.logout()
