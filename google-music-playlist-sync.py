@@ -122,7 +122,7 @@ def find_track(l_track,  trackList):
     return False
 
 
-def syncPlaylist(api,  r_library,  l_tracks,  l_pl_name):
+def sync_playlist(api,  r_library,  l_tracks,  l_pl_name):
     # Get all available playlists from Google Music
     r_pls = api.get_all_playlist_ids(False, True)
 
@@ -250,7 +250,7 @@ def main():
             continue
 
         # sync the playlist
-        if not syncPlaylist(api, r_library, l_tracks , l_pl_name):
+        if not sync_playlist(api, r_library, l_tracks , l_pl_name):
             print "Syncing playlist " + l_pl_name + " failed."
             continue
 
