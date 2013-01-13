@@ -104,26 +104,22 @@ def clean_string(string):
     return string
 
 
-def find_track(l_track,  track_list):
-    matches = []
-    seq_match_artist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["artist"]))
-    seq_match_title = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["title"]))
+def find_track(l_track,  trackList):
+    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["artist"]))
+    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["title"]))
 
-    for r_track in track_list:
-        seq_match_artist.set_seq1(clean_string(r_track["artist"]))
-        seq_match_title.set_seq1(clean_string(r_track["title"]))
+    for remoteTrack in trackList:
+        seqMatchArtist.set_seq1(clean_string(remoteTrack["artist"]))
+        seqMatchTitle.set_seq1(clean_string(remoteTrack["title"]))
 
-        score_artist = seq_match_artist.quick_ratio()
-        score_title = seq_match_title.quick_ratio()
+        scoreArtist = seqMatchArtist.quick_ratio()
+        scoreTitle = seqMatchTitle.quick_ratio()
+        
+        totalScore = (scoreArtist + scoreTitle) / 2
+        if totalScore >= 0.85:
+            return remoteTrack
 
-        total_score = (score_artist + score_title) / 2
-        if total_score >= 0.8:
-            matches.append((total_score,  r_track))
-
-    if len(matches) == 0:
-        return False
-
-    return matches[0][1]
+    return False
 
 
 def sync_playlist(api,  r_library,  l_tracks,  l_pl_name):
