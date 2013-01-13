@@ -6,9 +6,7 @@
 #
 # This program is open source software. It is free to distribute, modify, and use
 # with the exception of it being made closed source and sold for commercial purposes
-# without the consent of the author. However, the author simply requests that if you 
-# do something cool with it, you let him check it out by emailing shane@shanetully.com 
-# or just let him know you find it useful.
+# without the consent of the author.
 #
 # Makes use of the Unofficial Google Music API by Simon Weber
 # https://github.com/simon-weber/Unofficial-Google-Music-API
@@ -79,37 +77,40 @@ def parse_xml(l_pl_path):
     return l_tracks
 
 
-def printUsage(prog):
+def print_usage(prog):
     print "Usage: " + prog + " [options] [path to playlist]\n"
     print "\tThe only valid options at this time are \"-h\" or \"--help\" to display this message."
     print "\tIf a playlist is not specified, a path to one will be asked for."
 
 
-def simplify(s):
-    # strip whitespaces and use lowercase
-    s = s.strip()
-    s = s.lower()
+def clean_string(string):
+    # Strip whitespaces and use lowercase
+    string = string.strip()
+    string = string.lower()
 
-    # remove (feat. someartist)
+    # Remove (feat. [some artist])
     patterns = ['^(.*?)\(feat\..*?\).*?$',  '^(.*?)feat\..*?$']
     for pattern in patterns:
-        reg = re.search(pattern,  s)
+        reg = re.search(pattern,  string)
         if reg:
-            s= reg.group(1)
+            string = reg.group(1)
 
-    return s
+    return string
 
 
-def findTrack(localTrack,  trackList):
-    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", simplify( localTrack["artist"] ))
-    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", simplify( localTrack["title"] ))
+def find_track(l_track,  trackList):
+    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["artist"]))
+    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["title"]))
+
     for remoteTrack in trackList:
-        seqMatchArtist.set_seq1( simplify( remoteTrack["artist"] ) )
-        seqMatchTitle.set_seq1( simplify( remoteTrack["title"] ) )
+        seqMatchArtist.set_seq1(clean_string(remoteTrack["artist"]))
+        seqMatchTitle.set_seq1(clean_string(remoteTrack["title"]))
+
         scoreArtist = seqMatchArtist.quick_ratio()
         scoreTitle = seqMatchTitle.quick_ratio()
-        score = (scoreArtist + scoreTitle) /2
-        if score >= 0.85:
+        
+        totalScore = (scoreArtist + scoreTitle) / 2
+        if totalScore >= 0.85:
             return remoteTrack
 
     return False
@@ -118,8 +119,8 @@ def findTrack(localTrack,  trackList):
 def main():
     # Show help if requested
     if len(sys.argv) == 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
-            printUsage(sys.argv[0])
-            exit(0)
+        print_usage(sys.argv[0])
+        exit(0)
 
     # Show some pretty ASCII art
     print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
@@ -205,14 +206,14 @@ def main():
     for l_track in l_tracks:
         added = False
         # Check if the track is already present in the playlist
-        if findTrack(l_track,  r_tracks) != False:
+        if find_track(l_track,  r_tracks) != False:
             added = True
 
         # Add the track to the playlist
         if not added:
             # Find the song ID
             l_track_id = None
-            matchedTrack = findTrack(l_track,  r_library)
+            matchedTrack = find_track(l_track,  r_library)
             if matchedTrack:
                 l_track_id = matchedTrack['id']
                 tracks_to_add_names.append(matchedTrack['artist'] + " - " + matchedTrack['title'])
