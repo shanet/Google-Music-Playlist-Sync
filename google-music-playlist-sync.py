@@ -15,6 +15,8 @@
 
 import sys
 from os import path
+import re
+import difflib
 from getpass import getpass
 from xml.etree.ElementTree import parse
 from gmusicapi.api import Api
@@ -81,6 +83,36 @@ def printUsage(prog):
     print "Usage: " + prog + " [options] [path to playlist]\n"
     print "\tThe only valid options at this time are \"-h\" or \"--help\" to display this message."
     print "\tIf a playlist is not specified, a path to one will be asked for."
+
+
+def simplify(s):
+    # strip whitespaces and use lowercase
+    s = s.strip()
+    s = s.lower()
+
+    # remove (feat. someartist)
+    patterns = ['^(.*?)\(feat\..*?\).*?$',  '^(.*?)feat\..*?$']
+    for pattern in patterns:
+        reg = re.search(pattern,  s)
+        if reg:
+            s= reg.group(1)
+
+    return s
+
+
+def findTrack(localTrack,  trackList):
+    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", simplify( localTrack["artist"] ))
+    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", simplify( localTrack["title"] ))
+    for remoteTrack in trackList:
+        seqMatchArtist.set_seq1( simplify( remoteTrack["artist"] ) )
+        seqMatchTitle.set_seq1( simplify( remoteTrack["title"] ) )
+        scoreArtist = seqMatchArtist.quick_ratio()
+        scoreTitle = seqMatchTitle.quick_ratio()
+        score = (scoreArtist + scoreTitle) /2
+        if score >= 0.85:
+            return remoteTrack
+
+    return False
 
 
 def main():
@@ -173,22 +205,18 @@ def main():
     for l_track in l_tracks:
         added = False
         # Check if the track is already present in the playlist
-        for r_track in r_tracks:
-            if l_track['title'] == r_track['title'] and l_track['artist'] == r_track['artist'] and l_track['album'] == r_track['album']:
-                #print "Track: \"" + l_track['title'] + "\" already added to playlist."
-                added = True
-                break
+        if findTrack(l_track,  r_tracks) != False:
+            added = True
 
         # Add the track to the playlist
         if not added:
             # Find the song ID
             l_track_id = None
-            for r_track in r_library:
-                if l_track['title'] == r_track['title'] and l_track['artist'] == r_track['artist'] and l_track['album'] == r_track['album']:
-                    l_track_id = r_track['id']
-                    tracks_to_add_names.append(l_track['title'])
-                    tracks_to_add_ids.append(r_track['id'])
-                    break
+            matchedTrack = findTrack(l_track,  r_library)
+            if matchedTrack:
+                l_track_id = matchedTrack['id']
+                tracks_to_add_names.append(matchedTrack['artist'] + " - " + matchedTrack['title'])
+                tracks_to_add_ids.append(matchedTrack['id'])
 
             # Check if the song wasn't found in the library
             if l_track_id == None:
@@ -202,7 +230,7 @@ def main():
         exit(0)
 
     # Print the songs about to be added
-    print "Tracks to be add:"
+    print "Tracks to be added:"
     for track in tracks_to_add_names:
         print "\t" + track
     print  "\nThe above tracks will be added to the playlist \"" + l_pl_name + "\""
