@@ -209,8 +209,8 @@ def sync_playlist(api,  r_library,  l_tracks,  l_pl_name):
 def main():
     # Show help if requested
     if len(sys.argv) >= 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
-            printUsage(sys.argv[0])
-            exit(0)
+        printUsage(sys.argv[0])
+        exit(0)
 
     # Show some pretty ASCII art
     print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
@@ -236,9 +236,9 @@ def main():
 
     print "Syncing playlists:"
     l_pl_paths = []
-    for  p in  sys.argv[1:]:
-        print "    " + p
-        l_pl_paths .append(p)
+    for playlist in sys.argv[1:]:
+        print "    " + playlist
+        l_pl_paths.append(playlist)
 
     for l_pl_path in l_pl_paths:
 
