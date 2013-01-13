@@ -116,61 +116,7 @@ def find_track(l_track,  trackList):
     return False
 
 
-def main():
-    # Show help if requested
-    if len(sys.argv) == 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
-        print_usage(sys.argv[0])
-        exit(0)
-
-    # Show some pretty ASCII art
-    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
-    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
-    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
-    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
-    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
-    print "                   |___/                                                  |___/                     |___/            "
-
-    print "\nThis script will sync a local XSPF format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n"
-
-    # Log in to Google Music
-    api = init()
-
-    if not api.is_authenticated():
-        print "Sorry, those credentials weren't accepted."
-        exit(1)
-
-    print "Successfully logged in.\n"
-
-    # Check if the playlist file was given as a command line arg
-    if len(sys.argv) == 2:
-        print "Using \"" + sys.argv[1] + "\" as playlist to sync."
-        l_pl_path = sys.argv[1]
-    elif len(sys.argv) > 2:
-        print "Too many command line arguments given."
-        api.logout
-        exit(1)
-    else:
-        # Prompt for the playlist file to use
-        l_pl_path = raw_input("Path to playlist file: ")
-
-    # Get the filename. This will be used as the playlist name.
-    l_pl_name, l_pl_type = path.splitext(path.basename(l_pl_path))
-
-    # Check that the file extension is xspf
-    if l_pl_type != ".xspf":
-        print "Error: Playlist must be XSPF format."
-        api.logout()
-        exit(1);
-
-    # Parse the playlist
-    l_tracks = parse_xml(l_pl_path)
-
-    # Check that the playlist has tracks in it
-    if len(l_tracks) == 0:
-        print "Error: Playlist is empty."
-        api.logout
-        exit(1)
-
+def syncPlaylist(api,  r_library,  l_tracks,  l_pl_name):
     # Get all available playlists from Google Music
     r_pls = api.get_all_playlist_ids(False, True)
 
@@ -197,9 +143,6 @@ def main():
     # Get the songs on the playlist
     r_tracks = api.get_playlist_songs(r_pl_id)
 
-    # Get all songs in the library
-    r_library = api.get_all_songs()
-
     # Check if each track in the local playlist is on the Google Music playlist
     tracks_to_add_names = []
     tracks_to_add_ids = []
@@ -221,14 +164,13 @@ def main():
 
             # Check if the song wasn't found in the library
             if l_track_id == None:
-                print "Error: Track \"" + l_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
+                print "Error: Track \"" + l_track["artist"] + " - " +  l_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
                 continue
 
     # Check that there are tracks to add
     if len(tracks_to_add_ids) == 0:
         print "\nPlaylist is already up-to-date."
-        api.logout
-        exit(0)
+        return True
 
     # Print the songs about to be added
     print "Tracks to be added:"
@@ -242,6 +184,67 @@ def main():
         print "\nTracks added to playlist!"
     else:
         print "Sorry!\n"
+        return False
+
+    return True
+
+
+def main():
+    # Show help if requested
+    if len(sys.argv) >= 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
+            printUsage(sys.argv[0])
+            exit(0)
+
+    # Show some pretty ASCII art
+    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
+    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
+    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
+    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
+    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
+    print "                   |___/                                                  |___/                     |___/            "
+
+    print "\nThis script will sync a local XSPF format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n"
+
+    # Log in to Google Music
+    api = init()
+
+    if not api.is_authenticated():
+        print "Sorry, those credentials weren't accepted."
+        exit(1)
+    print "Successfully logged in.\n"
+
+    # Get all songs in the library
+    print "Retrieving all songs in library..."
+    r_library = api.get_all_songs()
+
+    print "Syncing playlists:"
+    l_pl_paths = []
+    for  p in  sys.argv[1:]:
+        print "    " + p
+        l_pl_paths .append(p)
+
+    for l_pl_path in l_pl_paths:
+
+        #Get the filename. This will be used as the playlist name.
+        l_pl_name, l_pl_type = path.splitext(path.basename(l_pl_path))
+
+        # Check that the file extension is xspf
+        if l_pl_type != ".xspf":
+            print "Error: Playlist " + l_pl_name + " must be XSPF format."
+            continue
+
+        # Parse the playlist
+        l_tracks = parse_xml(l_pl_path)
+
+        # Check that the playlist has tracks in it
+        if len(l_tracks) == 0:
+            print "Error: Playlist " + l_pl_name + " is empty."
+            continue
+
+        # sync the playlist
+        if not syncPlaylist(api, r_library, l_tracks , l_pl_name):
+            print "Syncing playlist " + l_pl_name + " failed."
+            continue
 
     # Be a good citizen and log out
     api.logout()
