@@ -1,15 +1,26 @@
 #!/usr/bin/env python
 
-# Shane Tully
-# 
+# Shane Tully (shane@shanetully.com)
+# shanetully.com
+
 # GitHub repo: https://github.com/shanet/Google-Music-Playlist-Sync
-#
-# This program is open source software. It is free to distribute, modify, and use
-# with the exception of it being made closed source and sold for commercial purposes
-# without the consent of the author.
-#
 # Makes use of the Unofficial Google Music API by Simon Weber
 # https://github.com/simon-weber/Unofficial-Google-Music-API
+
+# Copyright (C) 2013 Shane Tully
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 from os import path
