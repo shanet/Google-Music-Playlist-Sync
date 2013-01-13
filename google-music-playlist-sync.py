@@ -53,6 +53,12 @@ def parse_xml(l_pl_path):
     # Parse the playlist XML file
     l_pl = parse(l_pl_path).getroot()
 
+    # Get the playlist title
+    l_pl_name = None
+    l_title_elem = l_pl.find("{http://xspf.org/ns/0/}title")
+    if not l_title_elem is None:
+        l_pl_name = l_title_elem.text.strip()
+
     # Get the list of tracks in the playlists
     l_tracks_elems = l_pl.find("{http://xspf.org/ns/0/}trackList")
     if l_tracks_elems is None:
@@ -74,7 +80,7 @@ def parse_xml(l_pl_path):
                 track['path'] = field.text.strip()
         l_tracks.append(track)
 
-    return l_tracks
+    return (l_pl_name, l_tracks)
 
 
 def print_usage(prog):
@@ -234,7 +240,9 @@ def main():
             continue
 
         # Parse the playlist
-        l_tracks = parse_xml(l_pl_path)
+        (name,  l_tracks) = parse_xml(l_pl_path)
+        if name:
+            l_pl_name = name
 
         # Check that the playlist has tracks in it
         if len(l_tracks) == 0:
