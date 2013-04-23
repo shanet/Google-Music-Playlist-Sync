@@ -23,27 +23,78 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-from os import path
 import re
 import difflib
-from getpass import getpass
+import argparse
+from os                    import path
+from getpass               import getpass
 from xml.etree.ElementTree import parse
-from gmusicapi.api import Api
+from mutagen.easyid3       import EasyID3
+from mutagen.easymp4       import EasyMP4
+from mutagen.flac          import FLAC
+from mutagen.id3           import ID3NoHeaderError
+from gmusicapi             import Webclient
+
+import pprint
 
 
-def init():
-    api = Api() 
-    
-    logged_in = False
+def main():
+    [user, root_dir, playlists] = parse_cmdline_args()
+
+    # Show some pretty ASCII art
+    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
+    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
+    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
+    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
+    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
+    print "                   |___/                                                  |___/                     |___/            "
+
+    print "\nThis script will sync a local XSPF or M3U format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n"
+
+    # Log in to Google Music
+    api = login_to_google_music(user)
+
+    # Get all songs in the library
+    print "Retrieving all songs in library. This may take a minute..."
+    remote_library = api.get_all_songs()
+
+    for playlist in playlists:
+        print "Syncing playlist: " + playlist
+        process_playlist(api, playlist, remote_library, root_dir)
+
+    # Be a good citizen and log out
+    api.logout()
+    print "Bye!"
+    exit(0)
+
+
+def parse_cmdline_args():
+    argvParser = argparse.ArgumentParser()
+    argvParser.add_argument('-u', '--user', dest='user', nargs='?', help="The Google username/email to log in with.")
+    argvParser.add_argument('-r', '--root-dir', dest='root_dir', nargs='?', default='./', help="The root directory of a music directory. Useful for M3U playlists.")
+    argvParser.add_argument('playlists', nargs='+', help="The filenames of playlists.")
+
+    args = argvParser.parse_args()
+
+    # If the root directory doesn't have a directory separator at the end, add it
+    if not args.root_dir.endswith('/'):
+        args.root_dir += '/'
+
+    return [args.user, args.root_dir, args.playlists]
+
+
+def login_to_google_music(user):
+    api = Webclient()
     attempts = 0
 
-    while not logged_in and attempts < 3:
-        email = raw_input("Google username or email: ")
+    while attempts < 3:
+        if user == None:
+            user = raw_input("Google username or email: ")
 
         # Try to read the password from a file
         # If file doesn't exist, ask for password
         # This is useful for 2-step authentication only
-        # Don't store your regular password in plain text
+        # Don't store your regular password in plain text!
         try:
             pw_file = open("pass.txt")
             password = pw_file.readline()
@@ -52,35 +103,67 @@ def init():
             password = getpass()
 
         print "\nLogging in..."
-        logged_in = api.login(email, password)
-        if not logged_in:
-            print "Log in failed."
-        attempts += 1
+        if api.login(user, password):
+            return api
+        else:
+            print "Login failed."
+            # Set the username to none so it is prompted to be re-entered on the next loop iteration
+            user = None
+            attempts += 1
 
-    return api
+    print str(attempts) + " failed login attempts. Giving up."
+    exit(0)
 
 
-def parse_xml(l_pl_path):
+def process_playlist(api, local_playlist_path, remote_library, root_dir):
+    # Get the filename. This will be used as the playlist name.
+    local_playlist_name, local_playlist_type = path.splitext(path.basename(local_playlist_path))
+
+    # Check that the file extension and parse the playlist
+    if local_playlist_type == ".xspf":
+        (name, local_tracks) = parse_xml(local_playlist_path)
+        # If the xml contained a playlist name, use that instead of the filename
+        if name:
+            local_playlist_name = name
+    elif local_playlist_type == ".m3u":
+        local_tracks = parse_m3u(local_playlist_path, root_dir)
+
+    else:
+        print "Error: Playlist " + local_playlist_name + " must be XSPF or M3U format."
+        return
+
+    # Check that the playlist has tracks in it
+    if len(local_tracks) == 0:
+        print "Error: Playlist " + local_playlist_name + " is empty."
+        return
+
+    # Sync the playlist
+    if not sync_playlist(api, remote_library, local_tracks , local_playlist_name):
+        print "Syncing playlist " + local_playlist_name + " failed."
+        return
+
+
+def parse_xml(local_playlist_path):
     # Parse the playlist XML file
-    l_pl = parse(l_pl_path).getroot()
+    xml_root = parse(local_playlist_path).getroot()
 
     # Get the playlist title
-    l_pl_name = None
-    l_title_elem = l_pl.find("{http://xspf.org/ns/0/}title")
-    if not l_title_elem is None:
-        l_pl_name = l_title_elem.text.strip()
+    playlist_name = None
+    title_element = xml_root.find("{http://xspf.org/ns/0/}title")
+    if not title_element is None:
+        playlist_name = title_element.text.strip()
 
     # Get the list of tracks in the playlists
-    l_tracks_elems = l_pl.find("{http://xspf.org/ns/0/}trackList")
-    if l_tracks_elems is None:
+    tracks_elements = xml_root.find("{http://xspf.org/ns/0/}trackList")
+    if tracks_elements is None:
         print "Error: Malformed or empty playlist."
         exit(1)
 
     # Convert the XML elements to a dict
-    l_tracks = []
-    for l_track in l_tracks_elems:
+    tracks = []
+    for track in tracks_elements:
         track = {}
-        for field in l_track:
+        for field in track:
             if field.tag == "{http://xspf.org/ns/0/}title":
                 track['title'] = field.text.strip()
             elif field.tag == "{http://xspf.org/ns/0/}creator":
@@ -89,15 +172,52 @@ def parse_xml(l_pl_path):
                 track['album'] = field.text.strip()
             elif field.tag == "{http://xspf.org/ns/0/}location":
                 track['path'] = field.text.strip()
-        l_tracks.append(track)
+        tracks.append(track)
 
-    return (l_pl_name, l_tracks)
+    return (playlist_name, tracks)
 
 
-def print_usage(prog):
-    print "Usage: " + prog + " [options] [path to playlist]\n"
-    print "\tThe only valid options at this time are \"-h\" or \"--help\" to display this message."
-    print "\tIf a playlist is not specified, a path to one will be asked for."
+def parse_m3u(local_playlist_path, root_dir):
+    playlist = open(local_playlist_path, 'r')
+
+    # Convert the tracks in the playlist into a dict
+    tracks = []
+    for line in playlist:
+        # Remove the newline from the end of the string
+        line = line.rstrip()
+
+        format = get_song_format(line)
+
+        try:
+            if format == "mp3":
+                song = EasyID3(root_dir + line)
+            elif format == "mp4" or format == "m4a":
+                song = EasyMP4(root_dir + line)
+            elif format == "flac":
+                song = FLAC(root_dir + line)
+            else:
+                print "\"" + line + "\" is not a supported format. Supported formats are MP3, MP4, M4A, or FLAC."
+                continue
+        except ID3NoHeaderError:
+            print "\"" + filename + "\" does not contain an ID3 tag."
+        # IO errors are most likely file not found errors or the wrong format file
+        except IOError as ioe:
+            print "\"" + line + "\": " + ioe.strerror
+
+        # Only take the first
+        track = {}
+        track['title']  = song['title'][0]
+        track['artist'] = song['artist'][0]
+        track['album']  = song['album'][0]
+        track['path']   = root_dir + line
+        tracks.append(track)
+
+    return tracks
+
+
+def get_song_format(filename):
+    # Use the filename extension as the format
+    return path.splitext(path.basename(filename))[1].lower()[1:]
 
 
 def clean_string(string):
@@ -116,12 +236,12 @@ def clean_string(string):
 
 
 def find_track(l_track,  trackList):
-    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["artist"]))
-    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", clean_string(l_track["title"]))
+    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['artist']))
+    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['title']))
 
     for remoteTrack in trackList:
-        seqMatchArtist.set_seq1(clean_string(remoteTrack["artist"]))
-        seqMatchTitle.set_seq1(clean_string(remoteTrack["title"]))
+        seqMatchArtist.set_seq1(clean_string(remoteTrack['artist']))
+        seqMatchTitle.set_seq1(clean_string(remoteTrack['title']))
 
         scoreArtist = seqMatchArtist.quick_ratio()
         scoreTitle = seqMatchTitle.quick_ratio()
@@ -133,55 +253,55 @@ def find_track(l_track,  trackList):
     return False
 
 
-def sync_playlist(api,  r_library,  l_tracks,  l_pl_name):
+def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
     # Get all available playlists from Google Music
-    r_pls = api.get_all_playlist_ids(False, True)
+    remote_playlists = api.get_all_playlist_ids(False, True)
 
     # Try to find the playlist if it already exists
-    r_pl_id = None
-    r_pl_items = r_pls['user'].items()
-    for i in range(len(r_pl_items)):
-        if r_pl_items[i][0] == l_pl_name:
+    remote_playlist_id = None
+    remote_playlist_items = remote_playlists['user'].items()
+    for i in range(len(remote_playlist_items)):
+        if remote_playlist_items[i][0] == local_playlist_name:
             # Check if there are multiple playlists with that name
-            if type(r_pl_items[i][1]) is list:
+            if type(remote_playlist_items[i][1]) is list:
                 # TODO: Handle multiple playlists with the same name
                 print "Found multiple playlists with that name. Defaulting to the first one."
-                r_pl_id = r_pl_items[i][1][0]
+                remote_playlist_id = remote_playlist_items[i][1][0]
             else:
-                r_pl_id = r_pl_items[i][1]
-            print "Found playlist with ID: " + r_pl_id
+                remote_playlist_id = remote_playlist_items[i][1]
+            print "Found playlist with ID: " + remote_playlist_id
             break
 
     # If the playlist wasn't found, create it
-    if r_pl_id is None:
+    if remote_playlist_id is None:
         print "Playlist not found on Google Music. Creating it."
-        r_pl_id = api.create_playlist(l_pl_name)
+        remote_playlist_id = api.create_playlist(local_playlist_name)
 
     # Get the songs on the playlist
-    r_tracks = api.get_playlist_songs(r_pl_id)
+    remote_tracks = api.get_playlist_songs(remote_playlist_id)
 
     # Check if each track in the local playlist is on the Google Music playlist
     tracks_to_add_names = []
     tracks_to_add_ids = []
-    for l_track in l_tracks:
+    for local_track in local_tracks:
         added = False
         # Check if the track is already present in the playlist
-        if find_track(l_track,  r_tracks) != False:
+        if find_track(local_track,  remote_tracks) != False:
             added = True
 
         # Add the track to the playlist
         if not added:
             # Find the song ID
-            l_track_id = None
-            matchedTrack = find_track(l_track,  r_library)
+            local_track_id = None
+            matchedTrack = find_track(local_track,  remote_library)
             if matchedTrack:
-                l_track_id = matchedTrack['id']
+                local_track_id = matchedTrack['id']
                 tracks_to_add_names.append(matchedTrack['artist'] + " - " + matchedTrack['title'])
                 tracks_to_add_ids.append(matchedTrack['id'])
 
             # Check if the song wasn't found in the library
-            if l_track_id == None:
-                print "Error: Track \"" + l_track["artist"] + " - " +  l_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
+            if local_track_id == None:
+                print "Error: Track \"" + local_track["artist"] + " - " +  local_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
                 continue
 
     # Check that there are tracks to add
@@ -193,82 +313,17 @@ def sync_playlist(api,  r_library,  l_tracks,  l_pl_name):
     print "Tracks to be added:"
     for track in tracks_to_add_names:
         print "\t" + track
-    print  "\nThe above tracks will be added to the playlist \"" + l_pl_name + "\""
+    print  "\nThe above tracks will be added to the playlist \"" + local_playlist_name + "\""
     if raw_input("Is this okay? (y,n) ") == "y":
         # Finally, add the new track to the playlist
         for track_id in tracks_to_add_ids:
-            api.add_songs_to_playlist(r_pl_id, track_id)
-        print "\nTracks added to playlist!"
+            api.add_songs_to_playlist(remote_playlist_id, track_id)
+        print "\nTracks added to playlist."
     else:
-        print "Sorry!\n"
+        print "Sorry!"
         return False
 
     return True
-
-
-def main():
-    # Show help if requested
-    if len(sys.argv) >= 2 and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
-        printUsage(sys.argv[0])
-        exit(0)
-
-    # Show some pretty ASCII art
-    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
-    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
-    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
-    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
-    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
-    print "                   |___/                                                  |___/                     |___/            "
-
-    print "\nThis script will sync a local XSPF format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n"
-
-    # Log in to Google Music
-    api = init()
-
-    if not api.is_authenticated():
-        print "Sorry, those credentials weren't accepted."
-        exit(1)
-    print "Successfully logged in.\n"
-
-    # Get all songs in the library
-    print "Retrieving all songs in library..."
-    r_library = api.get_all_songs()
-
-    print "Syncing playlists:"
-    l_pl_paths = []
-    for playlist in sys.argv[1:]:
-        print "    " + playlist
-        l_pl_paths.append(playlist)
-
-    for l_pl_path in l_pl_paths:
-
-        #Get the filename. This will be used as the playlist name.
-        l_pl_name, l_pl_type = path.splitext(path.basename(l_pl_path))
-
-        # Check that the file extension is xspf
-        if l_pl_type != ".xspf":
-            print "Error: Playlist " + l_pl_name + " must be XSPF format."
-            continue
-
-        # Parse the playlist
-        (name,  l_tracks) = parse_xml(l_pl_path)
-        if name:
-            l_pl_name = name
-
-        # Check that the playlist has tracks in it
-        if len(l_tracks) == 0:
-            print "Error: Playlist " + l_pl_name + " is empty."
-            continue
-
-        # sync the playlist
-        if not sync_playlist(api, r_library, l_tracks , l_pl_name):
-            print "Syncing playlist " + l_pl_name + " failed."
-            continue
-
-    # Be a good citizen and log out
-    api.logout()
-    print "\nBye!"
-    exit(0)
 
 
 if __name__ == '__main__':

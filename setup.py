@@ -10,8 +10,9 @@ setup(
     scripts=['google-music-playlist-sync.py'],
     url='https://github.com/shanet/Google-Music-Playlist-Sync',
     license='LGPL3',
-    description='A quick and dirty Python script to sync local XSPF playlists to Google Music',
+    description='A quick and dirty Python script to sync local XSPF or M3U playlists to Google Music',
     install_requires=[
-        'gmusicapi >= 2013.01.05'
+        'gmusicapi >= 2013.01.05',
+        'mutagen   >= 1.20'
     ],
 )
