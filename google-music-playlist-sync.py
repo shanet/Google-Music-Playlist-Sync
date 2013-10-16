@@ -22,20 +22,19 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import re
-import difflib
 import argparse
+import difflib
+import re
+import sys
+
 from os                    import path
 from getpass               import getpass
-from xml.etree.ElementTree import parse
+from gmusicapi             import Webclient
 from mutagen.easyid3       import EasyID3
 from mutagen.easymp4       import EasyMP4
 from mutagen.flac          import FLAC
 from mutagen.id3           import ID3NoHeaderError
-from gmusicapi             import Webclient
-
-import pprint
+from xml.etree.ElementTree import parse
 
 
 def main():
@@ -162,17 +161,17 @@ def parse_xml(local_playlist_path):
     # Convert the XML elements to a dict
     tracks = []
     for track in tracks_elements:
-        track = {}
+        new_track = {}
         for field in track:
             if field.tag == "{http://xspf.org/ns/0/}title":
-                track['title'] = field.text.strip()
+                new_track['title'] = field.text.strip()
             elif field.tag == "{http://xspf.org/ns/0/}creator":
-                track['artist'] = field.text.strip()
+                new_track['artist'] = field.text.strip()
             elif field.tag == "{http://xspf.org/ns/0/}album":
-                track['album'] = field.text.strip()
+                new_track['album'] = field.text.strip()
             elif field.tag == "{http://xspf.org/ns/0/}location":
-                track['path'] = field.text.strip()
-        tracks.append(track)
+                new_track['path'] = field.text.strip()
+        tracks.append(new_track)
 
     return (playlist_name, tracks)
 
@@ -200,11 +199,13 @@ def parse_m3u(local_playlist_path, root_dir):
                 continue
         except ID3NoHeaderError:
             print "\"" + filename + "\" does not contain an ID3 tag."
+            continue
         # IO errors are most likely file not found errors or the wrong format file
         except IOError as ioe:
             print "\"" + line + "\": " + ioe.strerror
+            continue
 
-        # Only take the first
+        # Only take the first metadata info for each category
         track = {}
         track['title']  = song['title'][0]
         track['artist'] = song['artist'][0]
@@ -235,40 +236,42 @@ def clean_string(string):
     return string
 
 
-def find_track(l_track,  trackList):
-    seqMatchArtist = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['artist']))
-    seqMatchTitle = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['title']))
+def find_track(l_track,  track_list):
+    artist_match = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['artist']))
+    title_match = difflib.SequenceMatcher(None, "foobar", clean_string(l_track['title']))
+    best_match = 0
 
-    for remoteTrack in trackList:
-        seqMatchArtist.set_seq1(clean_string(remoteTrack['artist']))
-        seqMatchTitle.set_seq1(clean_string(remoteTrack['title']))
+    for remote_track in track_list:
+        artist_match.set_seq1(clean_string(remote_track['artist']))
+        title_match.set_seq1(clean_string(remote_track['title']))
 
-        scoreArtist = seqMatchArtist.quick_ratio()
-        scoreTitle = seqMatchTitle.quick_ratio()
+        artist_score = artist_match.quick_ratio()
+        title_score = title_match.quick_ratio()
         
-        totalScore = (scoreArtist + scoreTitle) / 2
-        if totalScore >= 0.85:
-            return remoteTrack
+        total_score = (artist_score + title_score) / 2
 
-    return False
+        if total_score == 1:
+            return remote_track
+        elif total_score >= best_match:
+            best_match = total_score
+            best_match_track = remote_track
+
+    if best_match >= 0.85:
+        return best_match_track
+    else:
+        return False
 
 
 def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
     # Get all available playlists from Google Music
-    remote_playlists = api.get_all_playlist_ids(False, True)
+    remote_playlists = api.get_all_playlist_ids()
 
     # Try to find the playlist if it already exists
     remote_playlist_id = None
-    remote_playlist_items = remote_playlists['user'].items()
-    for i in range(len(remote_playlist_items)):
-        if remote_playlist_items[i][0] == local_playlist_name:
-            # Check if there are multiple playlists with that name
-            if type(remote_playlist_items[i][1]) is list:
-                # TODO: Handle multiple playlists with the same name
-                print "Found multiple playlists with that name. Defaulting to the first one."
-                remote_playlist_id = remote_playlist_items[i][1][0]
-            else:
-                remote_playlist_id = remote_playlist_items[i][1]
+    for playlist in remote_playlists['user']:
+        if playlist == local_playlist_name:
+            # TODO: Handle multiple playlists with the same name
+            remote_playlist_id = remote_playlists['user'][playlist][0]
             print "Found playlist with ID: " + remote_playlist_id
             break
 
@@ -284,25 +287,22 @@ def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
     tracks_to_add_names = []
     tracks_to_add_ids = []
     for local_track in local_tracks:
-        added = False
         # Check if the track is already present in the playlist
         if find_track(local_track,  remote_tracks) != False:
-            added = True
+            continue
 
         # Add the track to the playlist
-        if not added:
-            # Find the song ID
-            local_track_id = None
-            matchedTrack = find_track(local_track,  remote_library)
-            if matchedTrack:
-                local_track_id = matchedTrack['id']
-                tracks_to_add_names.append(matchedTrack['artist'] + " - " + matchedTrack['title'])
-                tracks_to_add_ids.append(matchedTrack['id'])
+        # Find the song ID
+        local_track_id = None
+        matched_track = find_track(local_track, remote_library)
+        if matched_track:
+            local_track_id = matched_track['id']
+            tracks_to_add_names.append(matched_track['artist'] + " - " + matched_track['title'])
+            tracks_to_add_ids.append(matched_track['id'])
 
-            # Check if the song wasn't found in the library
-            if local_track_id == None:
-                print "Error: Track \"" + local_track["artist"] + " - " +  local_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
-                continue
+        # Check if the song wasn't found in the library
+        if local_track_id == None:
+            print "Error: Track \"" + local_track["artist"] + " - " +  local_track['title'] + "\" in local playlist, but not found in Google Music library. Skipping this track."
 
     # Check that there are tracks to add
     if len(tracks_to_add_ids) == 0:
