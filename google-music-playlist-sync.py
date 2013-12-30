@@ -206,12 +206,15 @@ def parse_m3u(local_playlist_path, root_dir):
             continue
 
         # Only take the first metadata info for each category
-        track = {}
-        track['title']  = song['title'][0]
-        track['artist'] = song['artist'][0]
-        track['album']  = song['album'][0]
-        track['path']   = root_dir + line
-        tracks.append(track)
+        try:
+            track = {}
+            track['title']  = song['title'][0]
+            track['artist'] = song['artist'][0]
+            track['album']  = song['album'][0]
+            track['path']   = root_dir + line
+            tracks.append(track)
+        except KeyError:
+            print "The following track has missing metadata: %s. Skipping." % str(track)
 
     return tracks
 
