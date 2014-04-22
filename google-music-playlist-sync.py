@@ -36,6 +36,7 @@ from mutagen.flac          import FLAC
 from mutagen.id3           import ID3NoHeaderError
 from xml.etree.ElementTree import parse
 
+dry_run = False
 
 def main():
     [user, root_dir, playlists] = parse_cmdline_args()
@@ -71,6 +72,7 @@ def parse_cmdline_args():
     argvParser = argparse.ArgumentParser()
     argvParser.add_argument('-u', '--user', dest='user', nargs='?', help="The Google username/email to log in with.")
     argvParser.add_argument('-r', '--root-dir', dest='root_dir', nargs='?', default='./', help="The root directory of a music directory. Useful for M3U playlists.")
+    argvParser.add_argument('-d', '--dry-run', dest='dry_run', action='store_true', help="Only show what would be sync'd; don't actually sync anything.")
     argvParser.add_argument('playlists', nargs='+', help="The filenames of playlists.")
 
     args = argvParser.parse_args()
@@ -78,6 +80,10 @@ def parse_cmdline_args():
     # If the root directory doesn't have a directory separator at the end, add it
     if not args.root_dir.endswith('/'):
         args.root_dir += '/'
+
+    if args.dry_run:
+        global dry_run
+        dry_run = True
 
     return [args.user, args.root_dir, args.playlists]
 
@@ -265,7 +271,9 @@ def find_track(l_track,  track_list):
         return False
 
 
-def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
+def sync_playlist(api, remote_library, local_tracks, local_playlist_name):
+    global dry_run
+
     # Get all available playlists from Google Music
     remote_playlists = api.get_all_playlist_ids()
 
@@ -281,7 +289,8 @@ def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
     # If the playlist wasn't found, create it
     if remote_playlist_id is None:
         print "Playlist not found on Google Music. Creating it."
-        remote_playlist_id = api.create_playlist(local_playlist_name)
+        if not dry_run:
+            remote_playlist_id = api.create_playlist(local_playlist_name)
 
     # Get the songs on the playlist
     remote_tracks = api.get_playlist_songs(remote_playlist_id)
@@ -319,8 +328,9 @@ def sync_playlist(api,  remote_library,  local_tracks,  local_playlist_name):
     print  "\nThe above tracks will be added to the playlist \"" + local_playlist_name + "\""
     if raw_input("Is this okay? (y,n) ") == "y":
         # Finally, add the new track to the playlist
-        for track_id in tracks_to_add_ids:
-            api.add_songs_to_playlist(remote_playlist_id, track_id)
+        if not dry_run:
+            for track_id in tracks_to_add_ids:
+                api.add_songs_to_playlist(remote_playlist_id, track_id)
         print "\nTracks added to playlist."
     else:
         print "Sorry!"
