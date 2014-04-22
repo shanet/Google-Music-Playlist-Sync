@@ -36,6 +36,7 @@ from mutagen.flac          import FLAC
 from mutagen.id3           import ID3NoHeaderError
 from xml.etree.ElementTree import parse
 
+no_remove = False
 dry_run = False
 yes = False
 
@@ -73,6 +74,7 @@ def parse_cmdline_args():
     argvParser = argparse.ArgumentParser()
     argvParser.add_argument('-u', '--user', dest='user', nargs='?', help='The Google username/email to log in with.')
     argvParser.add_argument('-r', '--root-dir', dest='root_dir', nargs='?', default='./', help='The root directory of a music directory. Useful for M3U playlists.')
+    argvParser.add_argument('-n', '--no-remove', dest='no_remove', action='store_true', help='Only add to playlists; don\'t remove anything.')
     argvParser.add_argument('-d', '--dry-run', dest='dry_run', action='store_true', help='Only show what would be sync\'d; don\'t actually sync anything.')
     argvParser.add_argument('-y', '--yes', dest='yes', action='store_true', help='Say yes to all prompts.')
     argvParser.add_argument('playlists', nargs='+', help='The filenames of playlists.')
@@ -82,6 +84,10 @@ def parse_cmdline_args():
     # If the root directory doesn't have a directory separator at the end, add it
     if not args.root_dir.endswith('/'):
         args.root_dir += '/'
+
+    if args.no_remove:
+        global no_remove
+        no_remove = args.no_remove
 
     if args.dry_run:
         global dry_run
@@ -327,6 +333,10 @@ def get_tracks_to_add(api, local_tracks, remote_tracks, remote_library):
 
 
 def get_tracks_to_remove(api, local_tracks, remote_tracks):
+    global no_remove
+    if no_remove:
+        return ([], [])
+
     track_names = []
     track_ids = []
         

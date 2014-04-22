@@ -16,8 +16,8 @@ Once the GoogleMusicAPI is installed, just run the playlist sync script like any
 If you use two-step authentication with your Google account, you can store your application specific key in a file called "pass.txt" in the same directory as the script. You should ONLY store an application specific key here. Storing your real password in plain text is a horrible idea. Granted, so is storing an app-specific key, so type it in each time if you want.
 
 <pre>
-usage: google-music-playlist-sync.py [-h] [-u [USER]] [-r [ROOT_DIR]] [-d]
-                                     [-y]
+usage: google-music-playlist-sync.py [-h] [-u [USER]] [-r [ROOT_DIR]] [-n]
+                                     [-d] [-y]
                                      playlists [playlists ...]
 
 positional arguments:
@@ -30,6 +30,7 @@ optional arguments:
   -r [ROOT_DIR], --root-dir [ROOT_DIR]
                         The root directory of a music directory. Useful for
                         M3U playlists.
+  -n, --no-remove       Only add to playlists; don't remove anything.
   -d, --dry-run         Only show what would be sync'd; don't actually sync
                         anything.
   -y, --yes             Say yes to all prompts.
