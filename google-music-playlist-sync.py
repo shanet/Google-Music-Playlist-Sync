@@ -122,7 +122,7 @@ def login_to_google_music(user):
             password = getpass()
 
         print '\nLogging in...'
-        if api.login(user, password):
+        if api.login(user, password, Mobileclient.FROM_MAC_ADDRESS):
             return api
         else:
             print 'Login failed.'
