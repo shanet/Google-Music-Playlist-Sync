@@ -339,7 +339,7 @@ def get_tracks_to_remove(api, local_tracks, remote_tracks):
 
     track_names = []
     track_ids = []
-        
+
     for remote_track in remote_tracks:
         # Check if the remote track is present in the local playlist
         result = find_track(remote_track, local_tracks)
@@ -362,7 +362,7 @@ def find_track(local_track, remote_library):
 
         artist_score = artist_match.quick_ratio()
         title_score = title_match.quick_ratio()
-        
+
         total_score = (artist_score + title_score) / 2
 
         if total_score == 1:
@@ -405,7 +405,7 @@ def confirm_pending_modifications(playlist_name, tracks_to_add, tracks_to_remove
         print 'Tracks to be added:'
         for track in tracks_to_add:
             print '\t' + track
-        
+
     if len(tracks_to_remove) > 0:
         print 'Tracks to be removed:'
         for track in tracks_to_remove:
