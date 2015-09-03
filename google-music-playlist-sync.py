@@ -44,12 +44,14 @@ def main():
     [user, root_dir, playlists] = parse_cmdline_args()
 
     # Show some pretty ASCII art
-    print "  ____                   _        __  __           _        ____  _             _ _     _     ____                   "
-    print " / ___| ___   ___   __ _| | ___  |  \/  |_   _ ___(_) ___  |  _ \| | __ _ _   _| (_)___| |_  / ___| _   _ _ __   ___ "
-    print "| |  _ / _ \ / _ \ / _` | |/ _ \ | |\/| | | | / __| |/ __| | |_) | |/ _` | | | | | / __| __| \___ \| | | | '_ \ / __|"
-    print "| |_| | (_) | (_) | (_| | |  __/ | |  | | |_| \__ \ | (__  |  __/| | (_| | |_| | | \__ \ |_   ___) | |_| | | | | (__ "
-    print " \____|\___/ \___/ \__, |_|\___| |_|  |_|\__,_|___/_|\___| |_|   |_|\__,_|\__, |_|_|___/\__| |____/ \__, |_| |_|\___|"
-    print "                   |___/                                                  |___/                     |___/            "
+    print ' ____________________________   '
+    print '< Google Music Playlist Sync >  '
+    print ' ----------------------------   '
+    print '        \   ^__^                '
+    print '         \  (oo)\_______        '
+    print '            (__)\       )\\/\\  '
+    print '                ||----w |       '
+    print '                ||     ||       '
 
     print '\nThis script will sync a local XSPF or M3U format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n'
 
