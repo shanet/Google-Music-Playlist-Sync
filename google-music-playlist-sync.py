@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Shane Tully (shane@shanetully.com)
 # shanetully.com
