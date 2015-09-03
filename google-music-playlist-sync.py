@@ -24,6 +24,7 @@
 
 import argparse
 import difflib
+import json
 import re
 import sys
 
@@ -35,6 +36,8 @@ from mutagen.easymp4       import EasyMP4
 from mutagen.flac          import FLAC
 from mutagen.id3           import ID3NoHeaderError
 from xml.etree.ElementTree import parse
+
+CREDS_FILE = 'creds.json'
 
 no_remove = False
 dry_run = False
@@ -104,34 +107,32 @@ def parse_cmdline_args():
 
 def login_to_google_music(user):
     api = Mobileclient()
-    attempts = 0
 
-    while attempts < 3:
-        if user == None:
-            user = raw_input('Google username or email: ')
+    # Try to read the username and password from a file
+    # This is useful for 2-step authentication
+    # Don't store your regular password in plain text!
+    try:
+        creds_file = open(CREDS_FILE)
+        creds = json.load(creds_file)
+    except IOError:
+        creds = {}
 
-        # Try to read the password from a file
-        # If file doesn't exist, ask for password
-        # This is useful for 2-step authentication only
-        # Don't store your regular password in plain text!
-        try:
-            pw_file = open('pass.txt')
-            password = pw_file.readline()
-            print 'Reading password from pass.txt.'
-        except IOError:
-            password = getpass()
+    try:
+        user = creds['username']
+    except KeyError:
+        user = raw_input('Google username/email: ')
 
-        print '\nLogging in...'
-        if api.login(user, password, Mobileclient.FROM_MAC_ADDRESS):
-            return api
-        else:
-            print 'Login failed.'
-            # Set the username to none so it is prompted to be re-entered on the next loop iteration
-            user = None
-            attempts += 1
+    try:
+        password = creds['password']
+    except KeyError:
+        password = getpass()
 
-    print '%d failed login attempts. Giving up.' % (attempts)
-    exit(0)
+    print '\nLogging in...'
+    if api.login(user, password, Mobileclient.FROM_MAC_ADDRESS):
+        return api
+    else:
+        print 'Login failed. Giving up.'
+        exit(1)
 
 
 def process_playlist(api, local_playlist_path, remote_library, root_dir):

@@ -1,5 +1,7 @@
 # Google-Music-Playlist Sync
-#### shane tully (shane@shanetully.com / shanetully.com)
+
+#### shane tully
+#### shane@shanetully.com
 
 This is a simple Python script that uses the Unofficial-Google-Music-API to sync local XSPF or M3U format playlists to Google Music. For M3U playlists, the song info is determined by the song metadata so only MP3, FLAC, M4A, and MP4 formats are supported.
 
@@ -35,6 +37,21 @@ optional arguments:
                         anything.
   -y, --yes             Say yes to all prompts.
 </pre>
+
+## Credentials File
+
+Users of two factor authentication can store an application specific password in a file so it does not need to be entered each time the script is run. To do this, place a file called `creds.json` in the same directory as the script with the following contents:
+
+<pre>
+{
+  "username": "your username",
+  "password": "your application specific password"
+}
+</pre>
+
+**WARNING:** Do not store your regular password here as plain text!
+
+Combining the credentials file with the `--yes` option allows for unattended synchronizations
 
 ## License
 
