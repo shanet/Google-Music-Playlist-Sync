@@ -12,7 +12,7 @@ setup(
     license='LGPL3',
     description='A quick and dirty Python script to sync local XSPF or M3U playlists to Google Music',
     install_requires=[
-        'gmusicapi >= 2013.01.05',
+        'gmusicapi >= 7.0.0',
         'mutagen   >= 1.20'
     ],
 )
