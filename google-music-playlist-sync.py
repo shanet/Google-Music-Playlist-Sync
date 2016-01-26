@@ -56,7 +56,7 @@ def main():
     print '                ||----w |       '
     print '                ||     ||       '
 
-    print '\nThis script will sync a local XSPF or M3U format playlist, to a playlist on Google Music. Use the Google Music uploader to\nfirst upload the songs in the playlist.\n'
+    print '\nThis script will sync a local XSPF or M3U format playlist, to a playlist on Google Music. Use the Google Music uploader to first upload the songs in the playlist.\n'
 
     # Log in to Google Music
     api = login_to_google_music(user)
@@ -120,7 +120,8 @@ def login_to_google_music(user):
     try:
         user = creds['username']
     except KeyError:
-        user = raw_input('Google username/email: ')
+        if not user:
+            user = raw_input('Google username/email: ')
 
     try:
         password = creds['password']
